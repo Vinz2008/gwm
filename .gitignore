@@ -1,0 +1,4 @@
+*.o
+gwm
+build
+*.exe
