@@ -41,6 +41,6 @@ int main() {
 	);
 	xcb_map_window(c, win);
 	xcb_flush(c);
-	sleep(10);
+	sleep(5);
 	return 0;
 }
