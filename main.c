@@ -22,8 +22,11 @@ void print_modifiers (uint32_t mask)
 
 
 int main() {
+	xcb_screen_iterator_t screen_iter;
 	xcb_connection_t *c;
 	xcb_screen_t *screen;
+	const xcb_setup_t *setup;
+	int screen_number;
 	xcb_drawable_t win;
 	xcb_gcontext_t foreground;
 	xcb_generic_event_t *e;
@@ -34,7 +37,26 @@ int main() {
     	{40, 40, 20, 20},
   	};
 	c = xcb_connect(NULL, NULL); // connect to X server
-	screen = xcb_setup_roots_iterator(xcb_get_setup (c)).data; // get first screen
+	if (!c) {
+    printf("ERROR: can't connect to an X server\n");
+    return -1;
+  	}
+
+	  // get first screen
+	setup = xcb_get_setup (c);
+  	screen = NULL;
+  	screen_iter = xcb_setup_roots_iterator (setup);
+ 	for (; screen_iter.rem != 0; --screen_number, xcb_screen_next(&screen_iter))
+    if (screen_number == 0)
+    {
+    screen = screen_iter.data;
+    break;
+    }
+	if (!screen) {
+    printf("ERROR: can't get the current screen\n");
+    xcb_disconnect(c);
+    return -1;
+	}
 
 	// create black foreground
 	win = screen->root;
@@ -63,13 +85,15 @@ int main() {
 	);
 	xcb_map_window(c, win);
 	xcb_flush(c);
-	while ((e = xcb_wait_for_event(c))) {
+	while (1) {
+		e = xcb_poll_for_event(c);
+		if (e){
 		switch (e->response_type & ~0x80)
 		{
 		case XCB_EXPOSE:
 			xcb_expose_event_t *ev = (xcb_expose_event_t *)e;
 			xcb_poly_rectangle(c, win, foreground, 1, rectangles);
-			xcb_image_text_8 (c, strlen(string), win, foreground, 20, 20, string);
+			xcb_image_text_8(c, strlen(string), win, foreground, 20, 20, string);
 			xcb_flush(c);
 			break;
 		case XCB_BUTTON_PRESS: {
@@ -133,8 +157,8 @@ int main() {
       		printf("Unknown event: %d\n", e->response_type);
       		break;
     }
-		free(e);
 	}
-	endloop:
+	free(e);
+	}
 	return 0;
 }
