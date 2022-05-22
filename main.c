@@ -6,6 +6,21 @@
 #include <string.h>
 
 
+void print_modifiers (uint32_t mask)
+{
+  const char **mod, *mods[] = {
+    "Shift", "Lock", "Ctrl", "Alt",
+    "Mod2", "Mod3", "Mod4", "Mod5",
+    "Button1", "Button2", "Button3", "Button4", "Button5"
+  };
+  printf ("Modifier mask: ");
+  for (mod = mods ; mask; mask >>= 1, mod++)
+    if (mask & 1)
+      printf(*mod);
+  putchar ('\n');
+}
+
+
 int main() {
 	xcb_connection_t *c;
 	xcb_screen_t *screen;
@@ -52,17 +67,65 @@ int main() {
 		switch (e->response_type & ~0x80)
 		{
 		case XCB_EXPOSE:
+			xcb_expose_event_t *ev = (xcb_expose_event_t *)e;
 			xcb_poly_rectangle(c, win, foreground, 1, rectangles);
 			xcb_image_text_8 (c, strlen(string), win, foreground, 20, 20, string);
 			xcb_flush(c);
 			break;
-		case XCB_KEY_PRESS:
-      		goto endloop;
+		case XCB_BUTTON_PRESS: {
+      		xcb_button_press_event_t *ev = (xcb_button_press_event_t *)e;
+      		print_modifiers(ev->state);
 
-		default:
-			// unknown event that is ignored
-			break;
+      		switch (ev->detail) {
+      			case 4:
+				  	//printf ("Wheel Button up in window %ld, at coordinates (%d,%d)\n", ev->event, ev->event_x, ev->event_y);
+        			break;
+      			case 5:
+        			//printf ("Wheel Button down in window %ld, at coordinates (%d,%d)\n",ev->event, ev->event_x, ev->event_y);
+        			break;
+      			default:
+        		//printf ("Button %d pressed in window %ld, at coordinates (%d,%d)\n",ev->detail, ev->event, ev->event_x, ev->event_y);
+      		}
+      		break;
+  		}
+    	case XCB_BUTTON_RELEASE: {
+      		xcb_button_release_event_t *ev = (xcb_button_release_event_t *)e;
+      		print_modifiers(ev->state);
+      		//printf ("Button %d released in window %ld, at coordinates (%d,%d)\n",ev->detail, ev->event, ev->event_x, ev->event_y);
+			putchar(ev->detail);
+      		break;
+    	}
+    	case XCB_MOTION_NOTIFY: {
+      		xcb_motion_notify_event_t *ev = (xcb_motion_notify_event_t *)e;
+      		//printf ("Mouse moved in window %ld, at coordinates (%d,%d)\n",ev->event, ev->event_x, ev->event_y);
+      		break;
+    	}
+    	case XCB_ENTER_NOTIFY: {
+      		xcb_enter_notify_event_t *ev = (xcb_enter_notify_event_t *)e;
+      		//printf ("Mouse entered window %ld, at coordinates (%d,%d)\n",ev->event, ev->event_x, ev->event_y);
+      		break;
+    	}
+    	case XCB_LEAVE_NOTIFY: {
+      		xcb_leave_notify_event_t *ev = (xcb_leave_notify_event_t *)e;
+      		//printf ("Mouse left window %ld, at coordinates (%d,%d)\n",ev->event, ev->event_x, ev->event_y);
+      		break;
 		}
+    	case XCB_KEY_PRESS: {
+      		xcb_key_press_event_t *ev = (xcb_key_press_event_t *)e;
+      		print_modifiers(ev->state);
+      		//printf ("Key pressed in window %ld\n",ev->event);
+      		break;
+    	}
+    	case XCB_KEY_RELEASE: {
+      		xcb_key_release_event_t *ev = (xcb_key_release_event_t *)e;
+      		print_modifiers(ev->state);
+      		//printf ("Key released in window %ld\n",ev->event);
+      		break;
+    	}
+    	default:
+      		printf("Unknown event: %d\n", e->response_type);
+      		break;
+    }
 		free(e);
 	}
 	endloop:
