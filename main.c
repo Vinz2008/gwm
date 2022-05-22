@@ -83,10 +83,6 @@ int main() {
       			case 5:
         			//printf ("Wheel Button down in window %ld, at coordinates (%d,%d)\n",ev->event, ev->event_x, ev->event_y);
         			break;
-				case 9:
-					free(e);
-          			xcb_disconnect(c);
-					exit(0);
           return 0;
       			default:
         		//printf ("Button %d pressed in window %ld, at coordinates (%d,%d)\n",ev->detail, ev->event, ev->event_x, ev->event_y);
@@ -124,6 +120,12 @@ int main() {
     	case XCB_KEY_RELEASE: {
       		xcb_key_release_event_t *ev = (xcb_key_release_event_t *)e;
       		print_modifiers(ev->state);
+       		switch (ev->detail) {
+        		case 9:/* ESC */
+          			free (e);
+          			xcb_disconnect (c);
+          			exit(0);
+        	}
       		//printf ("Key released in window %ld\n",ev->event);
       		break;
     	}
