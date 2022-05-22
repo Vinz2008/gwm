@@ -83,6 +83,11 @@ int main() {
       			case 5:
         			//printf ("Wheel Button down in window %ld, at coordinates (%d,%d)\n",ev->event, ev->event_x, ev->event_y);
         			break;
+				case 9:
+					free(e);
+          			xcb_disconnect(c);
+					exit(0);
+          return 0;
       			default:
         		//printf ("Button %d pressed in window %ld, at coordinates (%d,%d)\n",ev->detail, ev->event, ev->event_x, ev->event_y);
       		}
