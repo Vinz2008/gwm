@@ -153,6 +153,45 @@ int main() {
       		//printf ("Key released in window %ld\n",ev->event);
       		break;
     	}
+		case XCB_CONFIGURE_REQUEST: {
+			xcb_configure_request_event_t *ev = (xcb_configure_request_event_t*)e;
+			const uint32_t changes[] = {
+				ev->x,
+				ev->y,
+				ev->width,
+				ev->height
+			};
+			xcb_configure_window(c, ev->window, ev->value_mask, changes);
+			break;
+		}
+		case XCB_MAP_REQUEST: {
+			xcb_map_request_event_t *ev = (xcb_map_request_event_t*)e;
+			const unsigned int BORDER_WIDTH = 3;
+			const unsigned long BORDER_COLOR = 0xff0000;
+			const unsigned long BG_COLOR = 0x0000ff;
+			uint32_t values_temp[] = { screen->white_pixel, XCB_EVENT_MASK_EXPOSURE };
+			xcb_get_geometry_reply_t *geometry_reply = xcb_get_geometry_reply(c, xcb_get_geometry (c, ev->window), NULL);
+			xcb_get_window_attributes_reply_t *window_attributes = xcb_get_window_attributes_reply(c, xcb_get_window_attributes(c, ev->window), NULL);
+			uint32_t temp_id = xcb_generate_id(c);
+			xcb_create_window(
+				c,
+				geometry_reply->depth,
+				temp_id,
+				screen->root,
+				geometry_reply->x,
+				geometry_reply->y,
+				geometry_reply->width,
+				geometry_reply->height,
+				geometry_reply->border_width,
+				window_attributes->_class,
+				window_attributes->visual,
+				window_attributes->all_event_masks,
+				values_temp
+			);
+			xcb_map_window(c, temp_id);
+			free(geometry_reply);
+			break;
+		}
     	default:
       		printf("Unknown event: %d\n", e->response_type);
       		break;
@@ -162,3 +201,4 @@ int main() {
 	}
 	return 0;
 }
+
