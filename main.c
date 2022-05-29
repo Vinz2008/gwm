@@ -224,7 +224,7 @@ int main() {
 		}
 		case XCB_MAP_REQUEST: {
 			xcb_map_request_event_t *ev = (xcb_map_request_event_t*)e;
-			 xcb_change_save_set(c, XCB_SET_MODE_INSERT, ev->window);
+			xcb_change_save_set(c, XCB_SET_MODE_INSERT, ev->window);
     		xcb_flush(c);
 			const unsigned int BORDER_WIDTH = 3;
 			const unsigned long BORDER_COLOR = 0xff0000;
