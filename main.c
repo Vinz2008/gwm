@@ -124,29 +124,29 @@ int main() {
     	case XCB_BUTTON_RELEASE: {
       		xcb_button_release_event_t *ev = (xcb_button_release_event_t *)e;
       		print_modifiers(ev->state);
-      		//printf ("Button %d released in window %ld, at coordinates (%d,%d)\n",ev->detail, ev->event, ev->event_x, ev->event_y);
+      		printf ("Button %d released in window %ld, at coordinates (%d,%d)\n",ev->detail, ev->event, ev->event_x, ev->event_y);
 			putchar(ev->detail);
       		break;
     	}
     	case XCB_MOTION_NOTIFY: {
       		xcb_motion_notify_event_t *ev = (xcb_motion_notify_event_t *)e;
-      		//printf ("Mouse moved in window %ld, at coordinates (%d,%d)\n",ev->event, ev->event_x, ev->event_y);
+      		printf ("Mouse moved in window %ld, at coordinates (%d,%d)\n",ev->event, ev->event_x, ev->event_y);
       		break;
     	}
     	case XCB_ENTER_NOTIFY: {
       		xcb_enter_notify_event_t *ev = (xcb_enter_notify_event_t *)e;
-      		//printf ("Mouse entered window %ld, at coordinates (%d,%d)\n",ev->event, ev->event_x, ev->event_y);
+      		printf ("Mouse entered window %ld, at coordinates (%d,%d)\n",ev->event, ev->event_x, ev->event_y);
       		break;
     	}
     	case XCB_LEAVE_NOTIFY: {
       		xcb_leave_notify_event_t *ev = (xcb_leave_notify_event_t *)e;
-      		//printf ("Mouse left window %ld, at coordinates (%d,%d)\n",ev->event, ev->event_x, ev->event_y);
+      		printf ("Mouse left window %ld, at coordinates (%d,%d)\n",ev->event, ev->event_x, ev->event_y);
       		break;
 		}
     	case XCB_KEY_PRESS: {
       		xcb_key_press_event_t *ev = (xcb_key_press_event_t *)e;
       		print_modifiers(ev->state);
-      		//printf ("Key pressed in window %ld\n",ev->event);
+      		printf ("Key pressed in window %ld\n",ev->event);
       		break;
     	}
     	case XCB_KEY_RELEASE: {
@@ -158,7 +158,7 @@ int main() {
           			xcb_disconnect (c);
           			exit(0);
         	}
-      		//printf ("Key released in window %ld\n",ev->event);
+      		printf ("Key released in window %ld\n",ev->event);
       		break;
     	}
 		case XCB_CONFIGURE_REQUEST: {
