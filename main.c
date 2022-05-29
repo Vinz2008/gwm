@@ -78,9 +78,9 @@ int main() {
 					  XCB_COPY_FROM_PARENT, // depth
 					  win, // window id
 					  screen->root, // parent window
-					  100, 100, // x and y of the window
-					  150, 150, // width and height
-					  10, // border width
+					  screen->width_in_pixels/2, 0, // x and y of the window
+					  screen->width_in_pixels/2, screen->height_in_pixels, // width and height
+					  3, // border width
 					  XCB_WINDOW_CLASS_INPUT_OUTPUT, // class
 					  screen->root_visual, // visual
 					  mask, values // masks
