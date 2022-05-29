@@ -1,9 +1,12 @@
-#include <xkbcommon/xkbcommon.h>
 #include <xcb/xcb.h>
+#include <xcb/xcb_keysyms.h>
+#include <X11/keysym.h>
 #include <unistd.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+
 
 
 void print_modifiers (uint32_t mask)
