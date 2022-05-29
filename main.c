@@ -1,3 +1,4 @@
+#include <xkbcommon/xkbcommon.h>
 #include <xcb/xcb.h>
 #include <unistd.h>
 #include <stdio.h>
@@ -23,6 +24,12 @@ void print_modifiers (uint32_t mask)
 
 
 int main() {
+	struct xkb_context *xkb_ctx;
+	xkb_ctx = xkb_context_new(XKB_CONTEXT_NO_FLAGS);
+	if (!xkb_ctx) {
+		printf("ERROR : Couldn't initialize xkbcommon\n");
+		exit(1);
+	}
 	xcb_screen_iterator_t screen_iter;
 	xcb_connection_t *c;
 	xcb_screen_t *screen;
