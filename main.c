@@ -5,6 +5,9 @@
 #include <string.h>
 
 
+xcb_connection_t *c;
+xcb_screen_t *screen;
+
 struct window {
 	xcb_drawable_t id;
 	int16_t x;
@@ -37,6 +40,31 @@ int start_program(char* program_path) {
 }
 
 
+void resize_window(xcb_drawable_t window, uint16_t width, uint16_t height){
+	uint32_t values[2];
+    if (window == screen->root|| window == 0){
+        return;
+    }
+	values[0] = width;
+    values[1] = height;
+	 xcb_configure_window(c, window,
+                         XCB_CONFIG_WINDOW_WIDTH
+                         | XCB_CONFIG_WINDOW_HEIGHT, values);
+    xcb_flush(c);
+}
+
+void move_window(xcb_drawable_t window, uint16_t x, uint16_t y){
+	uint32_t values[2];
+	if (window == screen->root|| window == 0){
+		return;
+	}
+	values[0] = x;
+    values[1] = y;
+	xcb_configure_window(c, window, XCB_CONFIG_WINDOW_X
+                         | XCB_CONFIG_WINDOW_Y, values);
+    xcb_flush(c);
+}
+
 void print_modifiers (uint32_t mask)
 {
   const char **mod, *mods[] = {
@@ -54,8 +82,6 @@ void print_modifiers (uint32_t mask)
 
 int main() {
 	xcb_screen_iterator_t screen_iter;
-	xcb_connection_t *c;
-	xcb_screen_t *screen;
 	const xcb_setup_t *setup;
 	int screen_number;
 	xcb_drawable_t win;
@@ -206,26 +232,29 @@ int main() {
 			uint32_t values_temp[] = { screen->white_pixel, XCB_EVENT_MASK_EXPOSURE };
 			xcb_get_geometry_reply_t *geometry_reply = xcb_get_geometry_reply(c, xcb_get_geometry (c, ev->window), NULL);
 			xcb_get_window_attributes_reply_t *window_attributes = xcb_get_window_attributes_reply(c, xcb_get_window_attributes(c, ev->window), NULL);
-			uint32_t temp_id = xcb_generate_id(c);
+			/*uint32_t temp_id = xcb_generate_id(c);
 			xcb_create_window(
 				c,
 				geometry_reply->depth,
 				temp_id,
 				geometry_reply->root,
-				/*geometry_reply->x*/0,
-				/*geometry_reply->y*/0,
-				/*geometry_reply->width*/ screen->width_in_pixels/2,
-				/*geometry_reply->height*/screen->height_in_pixels,
+				geometry_reply->x,
+				geometry_reply->y,
+				geometry_reply->width,
+				geometry_reply->height,
 				geometry_reply->border_width,
 				window_attributes->_class,
 				window_attributes->visual,
 				window_attributes->all_event_masks,
 				values_temp
-			);
-			xcb_map_window(c, temp_id);
-			const static uint32_t values[] = { 10, 20 };
-			xcb_configure_window (c, win, XCB_CONFIG_WINDOW_X | XCB_CONFIG_WINDOW_Y, values);
+			);*/
+			move_window(ev->window, 0, 0);
+			resize_window(ev->window, screen->width_in_pixels/2, screen->height_in_pixels);
+			xcb_map_window(c, ev->window);
+			/*const static uint32_t values[] = { 10, 20 };
+			xcb_configure_window (c, win, XCB_CONFIG_WINDOW_X | XCB_CONFIG_WINDOW_Y, values);*/
 			free(geometry_reply);
+			xcb_flush(c);
 			break;
 		}
     	default:
