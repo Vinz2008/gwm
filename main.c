@@ -192,6 +192,8 @@ int main() {
 				values_temp
 			);
 			xcb_map_window(c, temp_id);
+			const static uint32_t values[] = { 10, 20 };
+			xcb_configure_window (c, win, XCB_CONFIG_WINDOW_X | XCB_CONFIG_WINDOW_Y, values);
 			free(geometry_reply);
 			break;
 		}
