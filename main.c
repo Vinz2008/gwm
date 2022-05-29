@@ -43,15 +43,15 @@ int main() {
   	}
 
 	  // get first screen
-	setup = xcb_get_setup (c);
+	setup = xcb_get_setup(c);
   	screen = NULL;
-  	screen_iter = xcb_setup_roots_iterator (setup);
- 	for (; screen_iter.rem != 0; --screen_number, xcb_screen_next(&screen_iter))
-    if (screen_number == 0)
-    {
+  	screen_iter = xcb_setup_roots_iterator(setup);
+ 	//for (; screen_iter.rem != 0; --screen_number, xcb_screen_next(&screen_iter))
+    //if (screen_number == 0)
+    //{
     screen = screen_iter.data;
-    break;
-    }
+    //break;
+    //}
 	if (!screen) {
     printf("ERROR: can't get the current screen\n");
     xcb_disconnect(c);
