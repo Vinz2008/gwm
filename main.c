@@ -159,10 +159,10 @@ int main() {
 		case XCB_CONFIGURE_REQUEST: {
 			xcb_configure_request_event_t *ev = (xcb_configure_request_event_t*)e;
 			const uint32_t changes[] = {
-				ev->x,
-				ev->y,
-				ev->width,
-				ev->height
+				/*ev->x*/ 0,
+				/*ev->y*/0,
+				/*ev->width*/screen->width_in_pixels/2,
+				/*ev->height*/ screen->height_in_pixels
 			};
 			xcb_configure_window(c, ev->window, ev->value_mask, changes);
 			break;
