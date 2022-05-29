@@ -78,7 +78,7 @@ int main() {
 					  XCB_COPY_FROM_PARENT, // depth
 					  win, // window id
 					  screen->root, // parent window
-					  0, 0, // x and y of the window
+					  100, 100, // x and y of the window
 					  150, 150, // width and height
 					  10, // border width
 					  XCB_WINDOW_CLASS_INPUT_OUTPUT, // class
