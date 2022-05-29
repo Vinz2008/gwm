@@ -1,4 +1,3 @@
-#include <xkbcommon/xkbcommon.h>
 #include <xcb/xcb.h>
 #include <unistd.h>
 #include <stdio.h>
@@ -24,12 +23,6 @@ void print_modifiers (uint32_t mask)
 
 
 int main() {
-	struct xkb_context *xkb_ctx;
-	xkb_ctx = xkb_context_new(XKB_CONTEXT_NO_FLAGS);
-	if (!xkb_ctx) {
-		printf("ERROR : Couldn't initialize xkbcommon\n");
-		exit(1);
-	}
 	xcb_screen_iterator_t screen_iter;
 	xcb_connection_t *c;
 	xcb_screen_t *screen;
@@ -49,6 +42,7 @@ int main() {
     printf("ERROR: can't connect to an X server\n");
     return -1;
   	}
+
 
 	  // get first screen
 	setup = xcb_get_setup(c);
@@ -124,29 +118,29 @@ int main() {
     	case XCB_BUTTON_RELEASE: {
       		xcb_button_release_event_t *ev = (xcb_button_release_event_t *)e;
       		print_modifiers(ev->state);
-      		printf ("Button %d released in window %ld, at coordinates (%d,%d)\n",ev->detail, ev->event, ev->event_x, ev->event_y);
+      		//printf ("Button %d released in window %ld, at coordinates (%d,%d)\n",ev->detail, ev->event, ev->event_x, ev->event_y);
 			putchar(ev->detail);
       		break;
     	}
     	case XCB_MOTION_NOTIFY: {
       		xcb_motion_notify_event_t *ev = (xcb_motion_notify_event_t *)e;
-      		printf ("Mouse moved in window %ld, at coordinates (%d,%d)\n",ev->event, ev->event_x, ev->event_y);
+      		//printf ("Mouse moved in window %ld, at coordinates (%d,%d)\n",ev->event, ev->event_x, ev->event_y);
       		break;
     	}
     	case XCB_ENTER_NOTIFY: {
       		xcb_enter_notify_event_t *ev = (xcb_enter_notify_event_t *)e;
-      		printf ("Mouse entered window %ld, at coordinates (%d,%d)\n",ev->event, ev->event_x, ev->event_y);
+      		//printf ("Mouse entered window %ld, at coordinates (%d,%d)\n",ev->event, ev->event_x, ev->event_y);
       		break;
     	}
     	case XCB_LEAVE_NOTIFY: {
       		xcb_leave_notify_event_t *ev = (xcb_leave_notify_event_t *)e;
-      		printf ("Mouse left window %ld, at coordinates (%d,%d)\n",ev->event, ev->event_x, ev->event_y);
+      		//printf ("Mouse left window %ld, at coordinates (%d,%d)\n",ev->event, ev->event_x, ev->event_y);
       		break;
 		}
     	case XCB_KEY_PRESS: {
       		xcb_key_press_event_t *ev = (xcb_key_press_event_t *)e;
       		print_modifiers(ev->state);
-      		printf ("Key pressed in window %ld\n",ev->event);
+      		//printf ("Key pressed in window %ld\n",ev->event);
       		break;
     	}
     	case XCB_KEY_RELEASE: {
@@ -154,11 +148,12 @@ int main() {
       		print_modifiers(ev->state);
        		switch (ev->detail) {
         		case 9:/* ESC */
-          			free (e);
-          			xcb_disconnect (c);
+          			free(e);
+          			xcb_disconnect(c);
           			exit(0);
+					return 0;
         	}
-      		printf ("Key released in window %ld\n",ev->event);
+      		//printf ("Key released in window %ld\n",ev->event);
       		break;
     	}
 		case XCB_CONFIGURE_REQUEST: {
