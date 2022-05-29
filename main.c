@@ -26,6 +26,11 @@ int start_program(char* program_path) {
 		char *argv[2];
 		argv[0] = program_path;
         argv[1] = NULL;
+		if (-1 == execvp(program_path, argv))
+        {
+            printf("EROR in execve");
+            exit(1);
+        }
 
 	}
 	return 0;
