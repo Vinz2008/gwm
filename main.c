@@ -5,6 +5,31 @@
 #include <string.h>
 
 
+struct window {
+	xcb_drawable_t id;
+	int16_t x;
+	int16_t y;
+	uint16_t width;
+	uint16_t height;
+};
+
+
+int start_program(char* program_path) {
+	pid_t pid = fork();
+	if (-1 == pid)
+    {
+        printf("ERROR : couldn't create a fork");
+        return -1;
+    }
+    else if (0 == pid)
+    {
+		char *argv[2];
+		argv[0] = program_path;
+        argv[1] = NULL;
+
+	}
+	return 0;
+}
 
 
 void print_modifiers (uint32_t mask)
@@ -150,7 +175,6 @@ int main() {
         		case 9:/* ESC */
           			free(e);
           			xcb_disconnect(c);
-          			exit(0);
 					return 0;
         	}
       		//printf ("Key released in window %ld\n",ev->event);
@@ -169,6 +193,8 @@ int main() {
 		}
 		case XCB_MAP_REQUEST: {
 			xcb_map_request_event_t *ev = (xcb_map_request_event_t*)e;
+			 xcb_change_save_set(c, XCB_SET_MODE_INSERT, ev->window);
+    		xcb_flush(c);
 			const unsigned int BORDER_WIDTH = 3;
 			const unsigned long BORDER_COLOR = 0xff0000;
 			const unsigned long BG_COLOR = 0x0000ff;
