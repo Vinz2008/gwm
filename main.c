@@ -17,6 +17,31 @@ struct window {
 };
 
 
+struct window* winlist;
+
+uint32_t getcolor(const char *colstr)
+{
+    xcb_alloc_named_color_reply_t *col_reply;
+    xcb_colormap_t colormap;
+    xcb_generic_error_t *error;
+    xcb_alloc_named_color_cookie_t colcookie;
+
+    colormap = screen->default_colormap;
+    colcookie = xcb_alloc_named_color(c, colormap, strlen(colstr), colstr);
+    col_reply = xcb_alloc_named_color_reply(c, colcookie, &error);
+    if (NULL != error)
+    {
+        printf("ERROR mcwm: Couldn't get pixel value for colour %s. "
+                "Exiting.\n", colstr);
+
+        xcb_disconnect(c);
+        exit(1);
+    }
+
+    return col_reply->pixel;
+}
+
+
 int start_program(char* program_path) {
 	pid_t pid = fork();
 	if (-1 == pid)
@@ -224,11 +249,11 @@ int main() {
 		}
 		case XCB_MAP_REQUEST: {
 			xcb_map_request_event_t *ev = (xcb_map_request_event_t*)e;
-			xcb_change_save_set(c, XCB_SET_MODE_INSERT, ev->window);
-    		xcb_flush(c);
 			const unsigned int BORDER_WIDTH = 3;
 			const unsigned long BORDER_COLOR = 0xff0000;
 			const unsigned long BG_COLOR = 0x0000ff;
+			uint32_t values_temp2[2];
+			uint32_t mask_temp = 0;
 			uint32_t values_temp[] = { screen->white_pixel, XCB_EVENT_MASK_EXPOSURE };
 			xcb_get_geometry_reply_t *geometry_reply = xcb_get_geometry_reply(c, xcb_get_geometry (c, ev->window), NULL);
 			xcb_get_window_attributes_reply_t *window_attributes = xcb_get_window_attributes_reply(c, xcb_get_window_attributes(c, ev->window), NULL);
@@ -248,6 +273,13 @@ int main() {
 				window_attributes->all_event_masks,
 				values_temp
 			);*/
+			values_temp2[0] = getcolor("grey40");
+			xcb_change_window_attributes(c, ev->window, XCB_CW_BORDER_PIXEL, values_temp2);
+			mask_temp = XCB_CW_EVENT_MASK;
+    		values_temp2[0] = XCB_EVENT_MASK_ENTER_WINDOW;
+    		xcb_change_window_attributes_checked(c, ev->window, mask, values_temp2);
+			xcb_change_save_set(c, XCB_SET_MODE_INSERT, ev->window);
+    		xcb_flush(c);
 			move_window(ev->window, 0, 0);
 			resize_window(ev->window, screen->width_in_pixels/2, screen->height_in_pixels);
 			xcb_map_window(c, ev->window);
