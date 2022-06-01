@@ -4,7 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-
+FILE* logFile;
 xcb_connection_t *c;
 xcb_screen_t *screen;
 
@@ -46,7 +46,7 @@ int start_program(char* program_path) {
 	pid_t pid = fork();
 	if (-1 == pid)
     {
-        printf("ERROR : couldn't create a fork");
+        fprintf(logFile, "ERROR : couldn't create a fork");
         return -1;
     }
     else if (0 == pid)
@@ -56,7 +56,7 @@ int start_program(char* program_path) {
         argv[1] = NULL;
 		if (-1 == execvp(program_path, argv))
         {
-            printf("EROR in execve");
+            fprintf(logFile,"EROR in execve");
             exit(1);
         }
 
@@ -106,6 +106,7 @@ void print_modifiers (uint32_t mask)
 
 
 int main() {
+	logFile = fopen("log.txt", "w");
 	xcb_screen_iterator_t screen_iter;
 	const xcb_setup_t *setup;
 	int screen_number;
@@ -120,7 +121,7 @@ int main() {
   	};
 	c = xcb_connect(NULL, NULL); // connect to X server
 	if (!c) {
-    printf("ERROR: can't connect to an X server\n");
+    fprintf(logFile,"ERROR: can't connect to an X server\n");
     return -1;
   	}
 
@@ -136,7 +137,7 @@ int main() {
     //break;
     //}
 	if (!screen) {
-    printf("ERROR: can't get the current screen\n");
+    fprintf(logFile,"ERROR: can't get the current screen\n");
     xcb_disconnect(c);
     return -1;
 	}
@@ -199,7 +200,7 @@ int main() {
     	case XCB_BUTTON_RELEASE: {
       		xcb_button_release_event_t *ev = (xcb_button_release_event_t *)e;
       		print_modifiers(ev->state);
-      		//printf ("Button %d released in window %ld, at coordinates (%d,%d)\n",ev->detail, ev->event, ev->event_x, ev->event_y);
+      		//printf("Button %d released in window %ld, at coordinates (%d,%d)\n",ev->detail, ev->event, ev->event_x, ev->event_y);
 			putchar(ev->detail);
       		break;
     	}
@@ -221,7 +222,7 @@ int main() {
     	case XCB_KEY_PRESS: {
       		xcb_key_press_event_t *ev = (xcb_key_press_event_t *)e;
       		print_modifiers(ev->state);
-      		//printf ("Key pressed in window %ld\n",ev->event);
+      		fprintf(logFile,"Key pressed in window %d\n",ev->detail);
       		break;
     	}
     	case XCB_KEY_RELEASE: {
@@ -245,6 +246,7 @@ int main() {
 				/*ev->height*/ screen->height_in_pixels
 			};
 			xcb_configure_window(c, ev->window, ev->value_mask, changes);
+			fprintf(logFile, "configured window %d in x:%d and y: %d with a height %d of and a width of %d", ev->window, ev->x, ev->y, ev->height, ev->width);
 			break;
 		}
 		case XCB_MAP_REQUEST: {
@@ -273,7 +275,8 @@ int main() {
 				window_attributes->all_event_masks,
 				values_temp
 			);*/
-			values_temp2[0] = getcolor("grey40");
+			//values_temp2[0] = getcolor("grey40");
+			values_temp2[0] = BORDER_COLOR;
 			xcb_change_window_attributes(c, ev->window, XCB_CW_BORDER_PIXEL, values_temp2);
 			mask_temp = XCB_CW_EVENT_MASK;
     		values_temp2[0] = XCB_EVENT_MASK_ENTER_WINDOW;
@@ -290,7 +293,7 @@ int main() {
 			break;
 		}
     	default:
-      		printf("Unknown event: %d\n", e->response_type);
+      		fprintf(logFile,  "Unknown event: %d\n", e->response_type);
       		break;
     }
 	}
