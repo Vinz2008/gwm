@@ -234,7 +234,7 @@ int main() {
           			xcb_disconnect(c);
 					return 0;
         	}
-      		//printf ("Key released in window %ld\n",ev->event);
+      		fprintf(logFile, "Key released in window %d\n",ev->detail);
       		break;
     	}
 		case XCB_CONFIGURE_REQUEST: {
@@ -299,6 +299,7 @@ int main() {
 	}
 	free(e);
 	}
+	fclose(logFile);
 	return 0;
 }
 
