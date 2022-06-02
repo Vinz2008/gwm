@@ -107,6 +107,10 @@ void print_modifiers (uint32_t mask)
 
 int main() {
 	logFile = fopen("log.txt", "w");
+	if(logFile == NULL) {
+        printf("log file can't be opened\n");
+        exit(1);
+    }
 	xcb_screen_iterator_t screen_iter;
 	const xcb_setup_t *setup;
 	int screen_number;
