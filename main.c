@@ -298,6 +298,7 @@ int main() {
 			vals[2] = window_width;
 			vals[3] = window_height;
 			vals[4] = 1; // border width
+			xcb_change_save_set(c, XCB_SET_MODE_INSERT, ev->window);
 			xcb_configure_window(c, ev->window, XCB_CONFIG_WINDOW_X |XCB_CONFIG_WINDOW_Y | XCB_CONFIG_WINDOW_WIDTH |XCB_CONFIG_WINDOW_HEIGHT | XCB_CONFIG_WINDOW_BORDER_WIDTH, vals);
 			//fprintf(logFile, "window %d configured at x: 0 and y: 0", ev->window);
 			/*const static uint32_t values[] = { 10, 20 };
