@@ -307,6 +307,7 @@ int main() {
 			xcb_flush(c);
 			values[0] = XCB_EVENT_MASK_ENTER_WINDOW | XCB_EVENT_MASK_FOCUS_CHANGE;
 			xcb_change_window_attributes_checked(c, ev->window,XCB_CW_EVENT_MASK, values);
+			move_window(ev->window, 100, 100);
 			break;
 		}
     	default:
