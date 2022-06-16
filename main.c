@@ -255,14 +255,14 @@ int main() {
 		}
 		case XCB_MAP_REQUEST: {
 			xcb_map_request_event_t *ev = (xcb_map_request_event_t*)e;
-			const unsigned int BORDER_WIDTH = 3;
+			/*const unsigned int BORDER_WIDTH = 3;
 			const unsigned long BORDER_COLOR = 0xff0000;
 			const unsigned long BG_COLOR = 0x0000ff;
 			uint32_t values_temp2[2];
 			uint32_t mask_temp = 0;
 			uint32_t values_temp[] = { screen->white_pixel, XCB_EVENT_MASK_EXPOSURE };
 			xcb_get_geometry_reply_t *geometry_reply = xcb_get_geometry_reply(c, xcb_get_geometry (c, ev->window), NULL);
-			xcb_get_window_attributes_reply_t *window_attributes = xcb_get_window_attributes_reply(c, xcb_get_window_attributes(c, ev->window), NULL);
+			xcb_get_window_attributes_reply_t *window_attributes = xcb_get_window_attributes_reply(c, xcb_get_window_attributes(c, ev->window), NULL);*/
 			/*uint32_t temp_id = xcb_generate_id(c);
 			xcb_create_window(
 				c,
@@ -280,7 +280,7 @@ int main() {
 				values_temp
 			);*/
 			//values_temp2[0] = getcolor("grey40");
-			values_temp2[0] = BORDER_COLOR;
+			/*values_temp2[0] = BORDER_COLOR;
 			xcb_change_window_attributes(c, ev->window, XCB_CW_BORDER_PIXEL, values_temp2);
 			mask_temp = XCB_CW_EVENT_MASK;
     		values_temp2[0] = XCB_EVENT_MASK_ENTER_WINDOW;
@@ -288,13 +288,24 @@ int main() {
 			xcb_change_save_set(c, XCB_SET_MODE_INSERT, ev->window);
     		xcb_flush(c);
 			move_window(ev->window, 0, 0);
-			resize_window(ev->window, screen->width_in_pixels/2, screen->height_in_pixels);
+			resize_window(ev->window, screen->width_in_pixels/2, screen->height_in_pixels);*/
 			xcb_map_window(c, ev->window);
-			fprintf(logFile, "window %d configured at x: 0 and y: 0", ev->window);
+			uint32_t vals[5];
+			int window_width = 600;
+			int window_height = 400;
+			vals[0] = (screen->width_in_pixels / 2) - (window_width / 2);
+			vals[1] = (screen->height_in_pixels / 2) - (window_height / 2);
+			vals[2] = window_width;
+			vals[3] = window_height;
+			vals[4] = 1; // border width
+			xcb_configure_window(c, ev->window, XCB_CONFIG_WINDOW_X |XCB_CONFIG_WINDOW_Y | XCB_CONFIG_WINDOW_WIDTH |XCB_CONFIG_WINDOW_HEIGHT | XCB_CONFIG_WINDOW_BORDER_WIDTH, vals);
+			//fprintf(logFile, "window %d configured at x: 0 and y: 0", ev->window);
 			/*const static uint32_t values[] = { 10, 20 };
 			xcb_configure_window (c, win, XCB_CONFIG_WINDOW_X | XCB_CONFIG_WINDOW_Y, values);*/
-			free(geometry_reply);
+			//free(geometry_reply);
 			xcb_flush(c);
+			values[0] = XCB_EVENT_MASK_ENTER_WINDOW | XCB_EVENT_MASK_FOCUS_CHANGE;
+			xcb_change_window_attributes_checked(c, ev->window,XCB_CW_EVENT_MASK, values);
 			break;
 		}
     	default:
