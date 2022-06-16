@@ -289,7 +289,6 @@ int main() {
     		xcb_flush(c);
 			move_window(ev->window, 0, 0);
 			resize_window(ev->window, screen->width_in_pixels/2, screen->height_in_pixels);*/
-			xcb_map_window(c, ev->window);
 			uint32_t vals[5];
 			int window_width = 600;
 			int window_height = 400;
@@ -308,6 +307,7 @@ int main() {
 			values[0] = XCB_EVENT_MASK_ENTER_WINDOW | XCB_EVENT_MASK_FOCUS_CHANGE;
 			xcb_change_window_attributes_checked(c, ev->window,XCB_CW_EVENT_MASK, values);
 			move_window(ev->window, 100, 100);
+			xcb_map_window(c, ev->window);
 			break;
 		}
     	default:
