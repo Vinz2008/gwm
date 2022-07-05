@@ -190,10 +190,10 @@ int main() {
 
       		switch (ev->detail) {
       			case 4:
-				  	//printf ("Wheel Button up in window %ld, at coordinates (%d,%d)\n", ev->event, ev->event_x, ev->event_y);
+				  	//fprintf(stdout ,"Wheel Button up in window %d, at coordinates (%d,%d)\n", ev->event, ev->event_x, ev->event_y);
         			break;
       			case 5:
-        			//printf ("Wheel Button down in window %ld, at coordinates (%d,%d)\n",ev->event, ev->event_x, ev->event_y);
+        			//fprintf(stdout, "Wheel Button down in window %d, at coordinates (%d,%d)\n",ev->event, ev->event_x, ev->event_y);
         			break;
           return 0;
       			default:
@@ -220,13 +220,13 @@ int main() {
     	}
     	case XCB_LEAVE_NOTIFY: {
       		xcb_leave_notify_event_t *ev = (xcb_leave_notify_event_t *)e;
-      		//printf ("Mouse left window %ld, at coordinates (%d,%d)\n",ev->event, ev->event_x, ev->event_y);
+      		//fprintf(stdout, "Mouse left window %ld, at coordinates (%d,%d)\n",ev->event, ev->event_x, ev->event_y);
       		break;
 		}
     	case XCB_KEY_PRESS: {
       		xcb_key_press_event_t *ev = (xcb_key_press_event_t *)e;
       		print_modifiers(ev->state);
-      		fprintf(logFile,"Key pressed in window %d\n",ev->detail);
+      		fprintf(stdout,"Key pressed in window %d\n",ev->detail);
       		break;
     	}
     	case XCB_KEY_RELEASE: {
@@ -238,7 +238,7 @@ int main() {
           			xcb_disconnect(c);
 					return 0;
         	}
-      		fprintf(logFile, "Key released in window %d\n",ev->detail);
+      		fprintf(stdout, "Key released in window %d\n",ev->detail);
       		break;
     	}
 		case XCB_CONFIGURE_REQUEST: {
@@ -250,7 +250,7 @@ int main() {
 				/*ev->height*/ screen->height_in_pixels
 			};
 			xcb_configure_window(c, ev->window, ev->value_mask, changes);
-			fprintf(logFile, "configured window %d in x:%d and y: %d with a height %d of and a width of %d", ev->window, ev->x, ev->y, ev->height, ev->width);
+			fprintf(stderr, "configured window %d in x:%d and y: %d with a height %d of and a width of %d", ev->window, ev->x, ev->y, ev->height, ev->width);
 			break;
 		}
 		case XCB_MAP_REQUEST: {
@@ -289,29 +289,37 @@ int main() {
     		xcb_flush(c);
 			move_window(ev->window, 0, 0);
 			resize_window(ev->window, screen->width_in_pixels/2, screen->height_in_pixels);*/
+
+			xcb_get_window_attributes_cookie_t cookie = xcb_get_window_attributes_unchecked(c, ev->window);
+			xcb_get_window_attributes_reply_t *attr = NULL;
+			attr = xcb_get_window_attributes_reply(c, cookie, 0);
 			xcb_map_window(c, ev->window);
 			uint32_t vals[5];
 			int window_width = 600;
-			int window_height = 400;
-			vals[0] = (screen->width_in_pixels / 2) - (window_width / 2);
-			vals[1] = (screen->height_in_pixels / 2) - (window_height / 2);
+			int window_height = 10;
+			//vals[0] = (screen->width_in_pixels / 2) - (window_width / 2);
+			vals[0] = 0;
+			//vals[1] = (screen->height_in_pixels / 2) - (window_height / 2);
+			vals[1] = 0;
 			vals[2] = window_width;
 			vals[3] = window_height;
 			vals[4] = 1; // border width
 			xcb_change_save_set(c, XCB_SET_MODE_INSERT, ev->window);
 			xcb_configure_window(c, ev->window, XCB_CONFIG_WINDOW_X |XCB_CONFIG_WINDOW_Y | XCB_CONFIG_WINDOW_WIDTH |XCB_CONFIG_WINDOW_HEIGHT | XCB_CONFIG_WINDOW_BORDER_WIDTH, vals);
-			//fprintf(logFile, "window %d configured at x: 0 and y: 0", ev->window);
+			vals[0] = XCB_STACK_MODE_BELOW;
+        	xcb_configure_window (c, ev->window, XCB_CONFIG_WINDOW_STACK_MODE, values);
+			fprintf(stderr, "window %d configured at x: 0 and y: 0", ev->window);
 			/*const static uint32_t values[] = { 10, 20 };
 			xcb_configure_window (c, win, XCB_CONFIG_WINDOW_X | XCB_CONFIG_WINDOW_Y, values);*/
 			//free(geometry_reply);
 			xcb_flush(c);
 			values[0] = XCB_EVENT_MASK_ENTER_WINDOW | XCB_EVENT_MASK_FOCUS_CHANGE;
 			xcb_change_window_attributes_checked(c, ev->window,XCB_CW_EVENT_MASK, values);
-			move_window(ev->window, 100, 100);
+			move_window(ev->window, 2, 2);
 			break;
 		}
     	default:
-      		fprintf(logFile,  "Unknown event: %d\n", e->response_type);
+      		fprintf(stderr,  "Unknown event: %d\n", e->response_type);
       		break;
     }
 	}
