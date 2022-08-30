@@ -11,7 +11,28 @@
 #include <sys/signal.h>
 
 #define ERROR(x) fprintf(stderr, x); exit(1)
+#define MAX(x, y) (((x) > (y)) ? (x) : (y))
+#define MIN(x, y) (((x) < (y)) ? (x) : (y))
 
+
+typedef struct Pos2D {
+    int x;
+    int y;
+} pos_t;
+
+typedef struct vector2d {
+    int x;
+    int y;
+} vector_t;
+
+typedef struct Size {
+    int height;
+    int width;
+} _size_t;
+
+pos_t drag_start_pos_;
+pos_t drag_start_frame_pos_;
+_size_t drag_start_frame_size_;
 
 typedef struct {
     Window* clients;
@@ -25,6 +46,9 @@ typedef struct {
 
 FILE* logFile;
 Bool wm_detected_;
+
+Atom wm_delete_window;
+Atom wm_protocols;
 
 int sw, sh, wx, wy;
 unsigned int ww, wh;
@@ -53,6 +77,18 @@ ClientList clientList;
 
 int xerror() { 
     return 0;
+}
+
+Bool find_in_atom(Atom* list, Atom* last, int val){
+    int i = 0;
+    while (list != last){
+        if (list[i] == val){
+            return True;
+        }
+        list++;
+        i++;
+    }
+    return False;
 }
 
 void initClientList(ClientList* clientList, size_t initalSize){
@@ -108,9 +144,10 @@ int getPosClientInClientList(ClientList* clientList, Window client){
     if (pos != -1){
         return pos;
     } else {
-        ERROR("pos not found\n");
+        printf("pos not found for %lu\n", client); exit(1);
     }
 }
+
 int OnWMDetected(Display* d, XErrorEvent* e){
     if (e->error_code == BadAccess){
         wm_detected_ = True;
@@ -120,8 +157,11 @@ int OnWMDetected(Display* d, XErrorEvent* e){
 
 void Frame(Window w, Bool wasCreatedBeforeWM){ 
     const unsigned int BORDER_WIDTH = 3;
-    const unsigned long BORDER_COLOR = 0xff0000;
+    const unsigned long BORDER_COLOR = 0x000000;
     const unsigned long BG_COLOR = 0x0000ff;
+    if (isClientIsInClientList(&clientList, w) == False){
+        return;
+    }
     XWindowAttributes x_window_attrs;
     XGetWindowAttributes(display, w, &x_window_attrs);
     if (wasCreatedBeforeWM) {
@@ -151,6 +191,49 @@ void Frame(Window w, Bool wasCreatedBeforeWM){
       frame,
       0, 0);
     XMapWindow(display, frame);
+    clientList.clients[getPosClientInClientList(&clientList, w)] = frame;
+    // Alt Left
+    XGrabButton(
+      display,
+      Button1,
+      Mod1Mask,
+      w,
+      False,
+      ButtonPressMask | ButtonReleaseMask | ButtonMotionMask,
+      GrabModeAsync,
+      GrabModeAsync,
+      None,
+      None);
+    // Alt Right
+    XGrabButton(
+      display,
+      Button3,
+      Mod1Mask,
+      w,
+      False,
+      ButtonPressMask | ButtonReleaseMask | ButtonMotionMask,
+      GrabModeAsync,
+      GrabModeAsync,
+      None,
+      None);
+    // Alt F4
+    XGrabKey(
+      display,
+      XKeysymToKeycode(display, XK_F4),
+      Mod1Mask,
+      w,
+      False,
+      GrabModeAsync,
+      GrabModeAsync);
+    // Alt Tab
+    XGrabKey(
+      display,
+      XKeysymToKeycode(display, XK_Tab),
+      Mod1Mask,
+      w,
+      False,
+      GrabModeAsync,
+      GrabModeAsync);
 }
 
 void unFrame(Window w){
@@ -177,13 +260,30 @@ void onConfigureRequest(XConfigureRequestEvent* ev){
     changes.height = ev->height;
     changes.sibling = ev->above;
     changes.stack_mode = ev->detail;
-
     if (isClientIsInClientList(&clientList, ev->window)){
         const Window frame = clientList.clients[getPosClientInClientList(&clientList, ev->window)];
         XConfigureWindow(display, frame, ev->value_mask, &changes);
     }
-
     XConfigureWindow(display, ev->window, ev->value_mask, &changes);
+}
+
+void onButtonPress(XButtonEvent* ev){
+    Window frame = clientList.clients[getPosClientInClientList(&clientList, ev->window)];
+    drag_start_pos_ = (pos_t){ev->x_root, ev->y_root};
+    Window returned_root;
+    int x, y;
+    unsigned width, height, border_width, depth;
+    XGetGeometry(
+      display,
+      frame,
+      &returned_root,
+      &x, &y,
+      &width, &height,
+      &border_width,
+      &depth);
+    drag_start_frame_pos_ = (pos_t){x, y};
+    drag_start_frame_size_ = (_size_t){height, width};
+    XRaiseWindow(display, frame);
 }
 
 void onMapRequest(XMapRequestEvent* ev){
@@ -193,6 +293,38 @@ void onMapRequest(XMapRequestEvent* ev){
 
 void onMotionNotify(XMotionEvent* ev){
     Window frame = clientList.clients[getPosClientInClientList(&clientList, ev->window)];
+    pos_t drag_pos = (pos_t){ev->x, ev->y};
+    vector_t delta = (vector_t){drag_pos.x - drag_start_pos_.x, drag_pos.y - drag_start_pos_.y};
+    if (ev->state && Button1Mask){
+        // Alt Left
+        pos_t dest_frame_pos = (pos_t){drag_start_frame_pos_.x + delta.x, drag_start_frame_pos_.y + delta.y};
+        XMoveWindow(display, frame, dest_frame_pos.x, dest_frame_pos.y);
+    } else {
+        vector_t size_delta = (vector_t){ MAX(delta.x, -drag_start_frame_size_.width), MAX(delta.y, -drag_start_frame_size_.height)};
+        _size_t dest_frame_size = (_size_t){drag_start_frame_size_.width + size_delta.x, drag_start_frame_size_.height + size_delta.y};
+        XResizeWindow(display, frame, dest_frame_size.width, dest_frame_size.height);
+        XResizeWindow(display, ev->window, dest_frame_size.width, dest_frame_size.height);
+    }   
+}
+
+void OnKeyPress(XKeyEvent* ev){
+    if ((ev->state & Mod1Mask) && (ev->keycode == XKeysymToKeycode(display, XK_F4))){
+        // Alt F4 Pressed
+        Atom* supported_protocols;
+        int num_supported_protocols;
+        if (XGetWMProtocols(display, ev->window, &supported_protocols, &num_supported_protocols) && find_in_atom(supported_protocols, supported_protocols + num_supported_protocols, wm_delete_window)){
+            XEvent msg;
+            memset(&msg, 0, sizeof(msg));
+            msg.xclient.type = ClientMessage;
+            msg.xclient.message_type = wm_protocols;
+            msg.xclient.window = ev->window;
+            msg.xclient.format = 32;
+            msg.xclient.data.l[0] = wm_delete_window;
+            XSendEvent(display, ev->window, False, 0, &msg);
+        } else {
+            XKillClient(display, ev->window);
+        }
+    }
 }
 
 void onCreateNotify(XCreateWindowEvent* ev){}
@@ -202,6 +334,10 @@ void onDestroyNotify(XDestroyWindowEvent* ev){}
 void onReparentNotify(XReparentEvent* ev){}
 
 void onMapNotify(XMapEvent* ev){}
+
+void onButtonRelease(XButtonEvent* ev){}
+
+void OnKeyRelease(XKeyEvent* e){}
 
 void onUnmapNotify(XUnmapEvent* ev){
     if (!isClientIsInClientList(&clientList, ev->window)){
@@ -237,6 +373,8 @@ void start_window_manager(){
     root  = RootWindow(display, screen);
     sw = XDisplayWidth(display, screen);
     sh = XDisplayHeight(display, screen);
+    wm_delete_window = XInternAtom(display, "WM_DELETE_WINDOW", False);
+    wm_protocols = XInternAtom(display, "WM_PROTOCOLS", False);
     XSelectInput(display,  root, SubstructureRedirectMask);
     XDefineCursor(display, root, XCreateFontCursor(display, 68));
     input_grab(root);
@@ -279,6 +417,15 @@ void start_window_manager(){
             break;
         case UnmapNotify:
             onUnmapNotify(&e.xunmap);
+            break;
+        case MotionNotify:
+            onMotionNotify(&e.xmotion);
+            break;
+        case ButtonRelease:
+            onButtonRelease(&e.xbutton);
+            break;
+        case KeyRelease:
+            OnKeyRelease(&e.xkey);
             break;
         default:
             printf("Event unknown\n");
