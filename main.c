@@ -1,15 +1,45 @@
-#include <xcb/xcb.h>
+#include <X11/Xlib.h>
+#include <X11/XF86keysym.h>
+#include <X11/keysym.h>
+#include <X11/XKBlib.h>
 #include <unistd.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdint.h>
+#include <sys/wait.h>
+#include <sys/signal.h>
+
+#define ERROR(x) fprintf(stderr, x); exit(1)
+
+
+typedef struct {
+    Window* clients;
+    size_t used;
+    size_t size;
+} ClientList;
+
+
+#define WIDTH   400
+#define HEIGHT  200
 
 FILE* logFile;
-xcb_connection_t *c;
-xcb_screen_t *screen;
+Bool wm_detected_;
+
+int sw, sh, wx, wy;
+unsigned int ww, wh;
+
+
+Display* display;
+XButtonEvent mouse;
+Window root;
+
+#define win_size(W, gx, gy, gw, gh) \
+    XGetGeometry(display, W, &(Window){0}, gx, gy, gw, gh, \
+                 &(unsigned int){0}, &(unsigned int){0})
 
 struct window {
-	xcb_drawable_t id;
+	//xcb_drawable_t id;
 	int16_t x;
 	int16_t y;
 	uint16_t width;
@@ -19,28 +49,246 @@ struct window {
 
 struct window* winlist;
 
-uint32_t getcolor(const char *colstr)
-{
-    xcb_alloc_named_color_reply_t *col_reply;
-    xcb_colormap_t colormap;
-    xcb_generic_error_t *error;
-    xcb_alloc_named_color_cookie_t colcookie;
+ClientList clientList;
 
-    colormap = screen->default_colormap;
-    colcookie = xcb_alloc_named_color(c, colormap, strlen(colstr), colstr);
-    col_reply = xcb_alloc_named_color_reply(c, colcookie, &error);
-    if (NULL != error)
-    {
-        printf("ERROR mcwm: Couldn't get pixel value for colour %s. "
-                "Exiting.\n", colstr);
-
-        xcb_disconnect(c);
-        exit(1);
-    }
-
-    return col_reply->pixel;
+int xerror() { 
+    return 0;
 }
 
+void initClientList(ClientList* clientList, size_t initalSize){
+    clientList->clients = malloc(initalSize * sizeof(clientList));
+    clientList->used = 0;
+    clientList->size = initalSize;
+}
+
+void addClientToList(ClientList* clientList, Window client){
+    if (clientList->used == clientList->size){
+        clientList->size *=2;
+        clientList->clients = realloc(clientList->clients, clientList->size * sizeof(Window));
+    }
+    clientList->clients[clientList->used++] = client;
+}
+
+void removeClientToList(ClientList* clientList, Window client){
+    ClientList clientList2;
+    clientList2.clients = malloc((clientList->used - 1) * sizeof(Window));
+    int i2 = 0;
+    for (int i = 0; i < clientList->used - 1; i++){
+        if (clientList->clients[i2] != client){
+            clientList2.clients[i] = clientList->clients[i2];
+        }
+        i2++;
+
+    }
+    clientList = &clientList2;
+}
+
+void emptyClientList(ClientList* clientList){
+    free(clientList->clients);
+    clientList->clients = NULL;
+    clientList->used = clientList->size = 0;
+}
+
+Bool isClientIsInClientList(ClientList* clientList, Window client){
+    for (int i = 0; i < clientList->size; i++){
+        if (clientList->clients[i] == client){
+            return True;
+        }
+    }
+    return False;
+}
+
+int getPosClientInClientList(ClientList* clientList, Window client){
+    int pos = -1;
+    for (int i = 0; i < clientList->size; i++){
+        if (clientList->clients[i] == client){
+            pos = i;
+        }
+    }
+    if (pos != -1){
+        return pos;
+    } else {
+        ERROR("pos not found\n");
+    }
+}
+int OnWMDetected(Display* d, XErrorEvent* e){
+    if (e->error_code == BadAccess){
+        wm_detected_ = True;
+    }
+    return 0;
+}
+
+void Frame(Window w, Bool wasCreatedBeforeWM){ 
+    const unsigned int BORDER_WIDTH = 3;
+    const unsigned long BORDER_COLOR = 0xff0000;
+    const unsigned long BG_COLOR = 0x0000ff;
+    XWindowAttributes x_window_attrs;
+    XGetWindowAttributes(display, w, &x_window_attrs);
+    if (wasCreatedBeforeWM) {
+    if (x_window_attrs.override_redirect ||
+        x_window_attrs.map_state != IsViewable) {
+      return;
+    }
+    }
+    const Window frame = XCreateSimpleWindow(
+      display,
+      root,
+      x_window_attrs.x,
+      x_window_attrs.y,
+      x_window_attrs.width,
+      x_window_attrs.height,
+      BORDER_WIDTH,
+      BORDER_COLOR,
+      BG_COLOR);
+    XSelectInput(
+      display,
+      frame,
+      SubstructureRedirectMask | SubstructureNotifyMask);
+    XAddToSaveSet(display, w);
+    XReparentWindow(
+      display,
+      w,
+      frame,
+      0, 0);
+    XMapWindow(display, frame);
+}
+
+void unFrame(Window w){
+    Window frame = clientList.clients[getPosClientInClientList(&clientList, w)];
+    XUnmapWindow(display, frame);
+    XReparentWindow(
+      display,
+      w,
+      root,
+      0, 0);
+    XRemoveFromSaveSet(display, w);
+    XDestroyWindow(display, frame);
+    removeClientToList(&clientList, w);
+}
+
+void input_grab(Window root) {
+}
+
+void onConfigureRequest(XConfigureRequestEvent* ev){
+    XWindowChanges changes;
+    changes.x = ev->x;
+    changes.y = ev->y;
+    changes.width = ev->width;
+    changes.height = ev->height;
+    changes.sibling = ev->above;
+    changes.stack_mode = ev->detail;
+
+    if (isClientIsInClientList(&clientList, ev->window)){
+        const Window frame = clientList.clients[getPosClientInClientList(&clientList, ev->window)];
+        XConfigureWindow(display, frame, ev->value_mask, &changes);
+    }
+
+    XConfigureWindow(display, ev->window, ev->value_mask, &changes);
+}
+
+void onMapRequest(XMapRequestEvent* ev){
+    Frame(ev->window, False);
+    XMapWindow(display, ev->window);
+}
+
+void onMotionNotify(XMotionEvent* ev){
+    Window frame = clientList.clients[getPosClientInClientList(&clientList, ev->window)];
+}
+
+void onCreateNotify(XCreateWindowEvent* ev){}
+
+void onDestroyNotify(XDestroyWindowEvent* ev){}
+
+void onReparentNotify(XReparentEvent* ev){}
+
+void onMapNotify(XMapEvent* ev){}
+
+void onUnmapNotify(XUnmapEvent* ev){
+    if (!isClientIsInClientList(&clientList, ev->window)){
+        // Ignoring UnmapNotify for non-client window
+        return;
+    }
+    if (ev->event == root){
+        // Ignoring UnmapNotify for reparented pre-existing window
+        return;
+    }
+    unFrame(ev->window);
+}
+
+void start_window_manager(){
+    XEvent e;
+	display = XOpenDisplay(0);
+	if (display == NULL){
+		ERROR("ERROR : can't open display\n");
+	}
+    signal(SIGCHLD, SIG_IGN);
+    wm_detected_ = False;
+    XSetErrorHandler(&OnWMDetected);
+    XSelectInput(
+      display,
+      root,
+      SubstructureRedirectMask | SubstructureNotifyMask);
+    XSync(display, False);
+    if (wm_detected_) {
+        printf("Detected another window manager on display %s\n", XDisplayString(display)); exit(1); // for format couldn't put ERROR
+    }
+    XSetErrorHandler(xerror);
+    int screen = DefaultScreen(display);
+    root  = RootWindow(display, screen);
+    sw = XDisplayWidth(display, screen);
+    sh = XDisplayHeight(display, screen);
+    XSelectInput(display,  root, SubstructureRedirectMask);
+    XDefineCursor(display, root, XCreateFontCursor(display, 68));
+    input_grab(root);
+    XGrabServer(display);
+    Window returned_root, returned_parent;
+    Window* top_level_windows;
+    unsigned int num_top_level_windows;
+    XQueryTree(
+      display,
+      root,
+      &returned_root,
+      &returned_parent,
+      &top_level_windows,
+      &num_top_level_windows);
+    for (unsigned int i = 0; i < num_top_level_windows; ++i) {
+    Frame(top_level_windows[i], True /* was_created_before_window_manager */);
+    }
+    XFree(top_level_windows);
+    XUngrabServer(display);
+    while (1 && !XNextEvent(display, &e)) {
+        switch (e.type)
+        {
+        case ConfigureRequest:
+            onConfigureRequest(&e.xconfigurerequest);
+            break;
+        case MapRequest:
+            onMapRequest(&e.xmaprequest);
+            break;
+        case CreateNotify:
+            onCreateNotify(&e.xcreatewindow);
+            break;
+        case DestroyNotify:
+            onDestroyNotify(&e.xdestroywindow);
+            break;
+        case ReparentNotify:
+            onReparentNotify(&e.xreparent);
+            break;
+        case MapNotify:
+            onMapNotify(&e.xmap);
+            break;
+        case UnmapNotify:
+            onUnmapNotify(&e.xunmap);
+            break;
+        default:
+            printf("Event unknown\n");
+            break;
+        }
+    }
+    XCloseDisplay(display);
+    return;
+	
+}
 
 int start_program(char* program_path) {
 	pid_t pid = fork();
@@ -54,277 +302,25 @@ int start_program(char* program_path) {
 		char *argv[2];
 		argv[0] = program_path;
         argv[1] = NULL;
-		if (-1 == execvp(program_path, argv))
-        {
+		if (-1 == execvp(program_path, argv)){
             fprintf(logFile,"EROR in execve");
             exit(1);
         }
-
 	}
 	return 0;
 }
 
 
-void resize_window(xcb_drawable_t window, uint16_t width, uint16_t height){
-	uint32_t values[2];
-    if (window == screen->root|| window == 0){
-        return;
-    }
-	values[0] = width;
-    values[1] = height;
-	 xcb_configure_window(c, window,
-                         XCB_CONFIG_WINDOW_WIDTH
-                         | XCB_CONFIG_WINDOW_HEIGHT, values);
-    xcb_flush(c);
-}
-
-void move_window(xcb_drawable_t window, uint16_t x, uint16_t y){
-	uint32_t values[2];
-	if (window == screen->root|| window == 0){
-		return;
-	}
-	values[0] = x;
-    values[1] = y;
-	xcb_configure_window(c, window, XCB_CONFIG_WINDOW_X
-                         | XCB_CONFIG_WINDOW_Y, values);
-    xcb_flush(c);
-}
-
-void print_modifiers (uint32_t mask)
-{
-  const char **mod, *mods[] = {
-    "Shift", "Lock", "Ctrl", "Alt",
-    "Mod2", "Mod3", "Mod4", "Mod5",
-    "Button1", "Button2", "Button3", "Button4", "Button5"
-  };
-  printf ("Modifier mask: ");
-  for (mod = mods ; mask; mask >>= 1, mod++)
-    if (mask & 1)
-      printf(*mod);
-  putchar ('\n');
-}
-
 
 int main() {
+    initClientList(&clientList, 1);
 	logFile = fopen("log.txt", "w");
 	if(logFile == NULL) {
         printf("log file can't be opened\n");
         exit(1);
     }
-	xcb_screen_iterator_t screen_iter;
-	const xcb_setup_t *setup;
-	int screen_number;
-	xcb_drawable_t win;
-	xcb_gcontext_t foreground;
-	xcb_generic_event_t *e;
-	uint32_t mask;
-	uint32_t values[2];
-	char string[] = "gwm";
-	xcb_rectangle_t rectangles[] = {
-    	{40, 40, 20, 20},
-  	};
-	c = xcb_connect(NULL, NULL); // connect to X server
-	if (!c) {
-    fprintf(logFile,"ERROR: can't connect to an X server\n");
-    return -1;
-  	}
-
-
-	  // get first screen
-	setup = xcb_get_setup(c);
-  	screen = NULL;
-  	screen_iter = xcb_setup_roots_iterator(setup);
- 	//for (; screen_iter.rem != 0; --screen_number, xcb_screen_next(&screen_iter))
-    //if (screen_number == 0)
-    //{
-    screen = screen_iter.data;
-    //break;
-    //}
-	if (!screen) {
-    fprintf(logFile,"ERROR: can't get the current screen\n");
-    xcb_disconnect(c);
-    return -1;
-	}
-
-	// create black foreground
-	win = screen->root;
-	foreground = xcb_generate_id(c); 
-	mask = XCB_GC_FOREGROUND | XCB_GC_FOREGROUND;
-	values[0] = screen->black_pixel;
-	values[1] = 0;
-	xcb_create_gc(c, foreground, win, mask, values);
-
-	win = xcb_generate_id(c); // ask window id
-
-	//create window
-	mask = XCB_CW_BACK_PIXEL | XCB_CW_EVENT_MASK;
-	values[0] = screen->white_pixel;
-	values[1] = XCB_EVENT_MASK_EXPOSURE;
-	xcb_create_window(c, // connection to X
-					  XCB_COPY_FROM_PARENT, // depth
-					  win, // window id
-					  screen->root, // parent window
-					  screen->width_in_pixels/2, 0, // x and y of the window
-					  screen->width_in_pixels/2, screen->height_in_pixels, // width and height
-					  3, // border width
-					  XCB_WINDOW_CLASS_INPUT_OUTPUT, // class
-					  screen->root_visual, // visual
-					  mask, values // masks
-	);
-	xcb_map_window(c, win);
-	xcb_flush(c);
-	while (1) {
-		e = xcb_poll_for_event(c);
-		if (e){
-		switch (e->response_type & ~0x80)
-		{
-		case XCB_EXPOSE:
-			xcb_expose_event_t *ev = (xcb_expose_event_t *)e;
-			xcb_poly_rectangle(c, win, foreground, 1, rectangles);
-			xcb_image_text_8(c, strlen(string), win, foreground, 20, 20, string);
-			xcb_flush(c);
-			break;
-		case XCB_BUTTON_PRESS: {
-      		xcb_button_press_event_t *ev = (xcb_button_press_event_t *)e;
-      		print_modifiers(ev->state);
-
-      		switch (ev->detail) {
-      			case 4:
-				  	//fprintf(stdout ,"Wheel Button up in window %d, at coordinates (%d,%d)\n", ev->event, ev->event_x, ev->event_y);
-        			break;
-      			case 5:
-        			//fprintf(stdout, "Wheel Button down in window %d, at coordinates (%d,%d)\n",ev->event, ev->event_x, ev->event_y);
-        			break;
-          return 0;
-      			default:
-        		//printf ("Button %d pressed in window %ld, at coordinates (%d,%d)\n",ev->detail, ev->event, ev->event_x, ev->event_y);
-      		}
-      		break;
-  		}
-    	case XCB_BUTTON_RELEASE: {
-      		xcb_button_release_event_t *ev = (xcb_button_release_event_t *)e;
-      		print_modifiers(ev->state);
-      		//printf("Button %d released in window %ld, at coordinates (%d,%d)\n",ev->detail, ev->event, ev->event_x, ev->event_y);
-			putchar(ev->detail);
-      		break;
-    	}
-    	case XCB_MOTION_NOTIFY: {
-      		xcb_motion_notify_event_t *ev = (xcb_motion_notify_event_t *)e;
-      		//printf ("Mouse moved in window %ld, at coordinates (%d,%d)\n",ev->event, ev->event_x, ev->event_y);
-      		break;
-    	}
-    	case XCB_ENTER_NOTIFY: {
-      		xcb_enter_notify_event_t *ev = (xcb_enter_notify_event_t *)e;
-      		//printf ("Mouse entered window %ld, at coordinates (%d,%d)\n",ev->event, ev->event_x, ev->event_y);
-      		break;
-    	}
-    	case XCB_LEAVE_NOTIFY: {
-      		xcb_leave_notify_event_t *ev = (xcb_leave_notify_event_t *)e;
-      		//fprintf(stdout, "Mouse left window %ld, at coordinates (%d,%d)\n",ev->event, ev->event_x, ev->event_y);
-      		break;
-		}
-    	case XCB_KEY_PRESS: {
-      		xcb_key_press_event_t *ev = (xcb_key_press_event_t *)e;
-      		print_modifiers(ev->state);
-      		fprintf(stdout,"Key pressed in window %d\n",ev->detail);
-      		break;
-    	}
-    	case XCB_KEY_RELEASE: {
-      		xcb_key_release_event_t *ev = (xcb_key_release_event_t *)e;
-      		print_modifiers(ev->state);
-       		switch (ev->detail) {
-        		case 9:/* ESC */
-          			free(e);
-          			xcb_disconnect(c);
-					return 0;
-        	}
-      		fprintf(stdout, "Key released in window %d\n",ev->detail);
-      		break;
-    	}
-		case XCB_CONFIGURE_REQUEST: {
-			xcb_configure_request_event_t *ev = (xcb_configure_request_event_t*)e;
-			const uint32_t changes[] = {
-				/*ev->x*/ 0,
-				/*ev->y*/0,
-				/*ev->width*/screen->width_in_pixels/2,
-				/*ev->height*/ screen->height_in_pixels
-			};
-			xcb_configure_window(c, ev->window, ev->value_mask, changes);
-			fprintf(stderr, "configured window %d in x:%d and y: %d with a height %d of and a width of %d", ev->window, ev->x, ev->y, ev->height, ev->width);
-			break;
-		}
-		case XCB_MAP_REQUEST: {
-			xcb_map_request_event_t *ev = (xcb_map_request_event_t*)e;
-			/*const unsigned int BORDER_WIDTH = 3;
-			const unsigned long BORDER_COLOR = 0xff0000;
-			const unsigned long BG_COLOR = 0x0000ff;
-			uint32_t values_temp2[2];
-			uint32_t mask_temp = 0;
-			uint32_t values_temp[] = { screen->white_pixel, XCB_EVENT_MASK_EXPOSURE };
-			xcb_get_geometry_reply_t *geometry_reply = xcb_get_geometry_reply(c, xcb_get_geometry (c, ev->window), NULL);
-			xcb_get_window_attributes_reply_t *window_attributes = xcb_get_window_attributes_reply(c, xcb_get_window_attributes(c, ev->window), NULL);*/
-			/*uint32_t temp_id = xcb_generate_id(c);
-			xcb_create_window(
-				c,
-				geometry_reply->depth,
-				temp_id,
-				geometry_reply->root,
-				geometry_reply->x,
-				geometry_reply->y,
-				geometry_reply->width,
-				geometry_reply->height,
-				geometry_reply->border_width,
-				window_attributes->_class,
-				window_attributes->visual,
-				window_attributes->all_event_masks,
-				values_temp
-			);*/
-			//values_temp2[0] = getcolor("grey40");
-			/*values_temp2[0] = BORDER_COLOR;
-			xcb_change_window_attributes(c, ev->window, XCB_CW_BORDER_PIXEL, values_temp2);
-			mask_temp = XCB_CW_EVENT_MASK;
-    		values_temp2[0] = XCB_EVENT_MASK_ENTER_WINDOW;
-    		xcb_change_window_attributes_checked(c, ev->window, mask, values_temp2);
-			xcb_change_save_set(c, XCB_SET_MODE_INSERT, ev->window);
-    		xcb_flush(c);
-			move_window(ev->window, 0, 0);
-			resize_window(ev->window, screen->width_in_pixels/2, screen->height_in_pixels);*/
-
-			xcb_get_window_attributes_cookie_t cookie = xcb_get_window_attributes_unchecked(c, ev->window);
-			xcb_get_window_attributes_reply_t *attr = NULL;
-			attr = xcb_get_window_attributes_reply(c, cookie, 0);
-			xcb_map_window(c, ev->window);
-			uint32_t vals[5];
-			int window_width = 600;
-			int window_height = 10;
-			//vals[0] = (screen->width_in_pixels / 2) - (window_width / 2);
-			vals[0] = 0;
-			//vals[1] = (screen->height_in_pixels / 2) - (window_height / 2);
-			vals[1] = 0;
-			vals[2] = window_width;
-			vals[3] = window_height;
-			vals[4] = 1; // border width
-			xcb_change_save_set(c, XCB_SET_MODE_INSERT, ev->window);
-			xcb_configure_window(c, ev->window, XCB_CONFIG_WINDOW_X |XCB_CONFIG_WINDOW_Y | XCB_CONFIG_WINDOW_WIDTH |XCB_CONFIG_WINDOW_HEIGHT | XCB_CONFIG_WINDOW_BORDER_WIDTH, vals);
-			vals[0] = XCB_STACK_MODE_BELOW;
-        	xcb_configure_window (c, ev->window, XCB_CONFIG_WINDOW_STACK_MODE, values);
-			fprintf(stderr, "window %d configured at x: 0 and y: 0", ev->window);
-			/*const static uint32_t values[] = { 10, 20 };
-			xcb_configure_window (c, win, XCB_CONFIG_WINDOW_X | XCB_CONFIG_WINDOW_Y, values);*/
-			//free(geometry_reply);
-			xcb_flush(c);
-			values[0] = XCB_EVENT_MASK_ENTER_WINDOW | XCB_EVENT_MASK_FOCUS_CHANGE;
-			xcb_change_window_attributes_checked(c, ev->window,XCB_CW_EVENT_MASK, values);
-			move_window(ev->window, 2, 2);
-			break;
-		}
-    	default:
-      		fprintf(stderr,  "Unknown event: %d\n", e->response_type);
-      		break;
-    }
-	}
-	free(e);
-	}
+	start_window_manager();
+	
 	fclose(logFile);
 	return 0;
 }

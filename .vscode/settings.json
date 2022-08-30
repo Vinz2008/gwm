@@ -1,0 +1,11 @@
+{
+    "files.associations": {
+        "io": "llvm",
+        "std": "llvm",
+        "array": "c",
+        "hash_map": "c",
+        "bitset": "c",
+        "string_view": "c",
+        "initializer_list": "c"
+    }
+}
