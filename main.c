@@ -299,7 +299,8 @@ void onMotionNotify(XMotionEvent* ev){
         // Alt Left
         pos_t dest_frame_pos = (pos_t){drag_start_frame_pos_.x + delta.x, drag_start_frame_pos_.y + delta.y};
         XMoveWindow(display, frame, dest_frame_pos.x, dest_frame_pos.y);
-    } else {
+    } else if (ev->state & Button3Mask) {
+        // ALt Right
         vector_t size_delta = (vector_t){ MAX(delta.x, -drag_start_frame_size_.width), MAX(delta.y, -drag_start_frame_size_.height)};
         _size_t dest_frame_size = (_size_t){drag_start_frame_size_.width + size_delta.x, drag_start_frame_size_.height + size_delta.y};
         XResizeWindow(display, frame, dest_frame_size.width, dest_frame_size.height);
@@ -324,6 +325,18 @@ void OnKeyPress(XKeyEvent* ev){
         } else {
             XKillClient(display, ev->window);
         }
+    } else if ((ev->state & Mod1Mask) && (ev->keycode == XKeysymToKeycode(display, XK_Tab))){
+        // Alt Tab Pressed
+        int i = getPosClientInClientList(&clientList, ev->window);
+        if (i == sizeof(clientList.clients) / sizeof(clientList.clients[0]) - 1){
+            return;
+        }
+        ++i;
+        if (i == sizeof(clientList.clients) / sizeof(clientList.clients[0]) - 1){
+            i = 0;
+        }
+        XRaiseWindow(display, clientList.clients[i]);
+        XSetInputFocus(display, clientList.clients[i], RevertToPointerRoot, CurrentTime);
     }
 }
 
