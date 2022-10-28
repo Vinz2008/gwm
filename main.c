@@ -366,10 +366,10 @@ void onUnmapNotify(XUnmapEvent* ev){
 
 void start_window_manager(){
     XEvent e;
-	display = XOpenDisplay(0);
-	if (display == NULL){
-		ERROR("ERROR : can't open display\n");
-	}
+    display = XOpenDisplay(0);
+    if (display == NULL){
+	ERROR("ERROR : can't open display\n");
+    }
     signal(SIGCHLD, SIG_IGN);
     wm_detected_ = False;
     XSetErrorHandler(&OnWMDetected);
@@ -480,7 +480,6 @@ int main() {
         exit(1);
     }
 	start_window_manager();
-	
 	fclose(logFile);
 	return 0;
 }
