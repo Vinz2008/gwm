@@ -10,7 +10,9 @@
 #include <sys/wait.h>
 #include <sys/signal.h>
 
+
 #define ERROR(x) fprintf(stderr, x); exit(1)
+
 #define MAX(x, y) (((x) > (y)) ? (x) : (y))
 #define MIN(x, y) (((x) < (y)) ? (x) : (y))
 
@@ -50,6 +52,8 @@ Bool wm_detected_;
 Atom wm_delete_window;
 Atom wm_protocols;
 
+XWindowAttributes attr;
+
 int sw, sh, wx, wy;
 unsigned int ww, wh;
 
@@ -57,6 +61,7 @@ unsigned int ww, wh;
 Display* display;
 XButtonEvent mouse;
 Window root;
+XButtonEvent start;
 
 #define win_size(W, gx, gy, gw, gh) \
     XGetGeometry(display, W, &(Window){0}, gx, gy, gw, gh, \
@@ -79,6 +84,7 @@ int xerror() {
     return 0;
 }
 
+
 Bool find_in_atom(Atom* list, Atom* last, int val){
     int i = 0;
     while (list != last){
@@ -90,6 +96,7 @@ Bool find_in_atom(Atom* list, Atom* last, int val){
     }
     return False;
 }
+
 
 void initClientList(ClientList* clientList, size_t initalSize){
     clientList->clients = malloc(initalSize * sizeof(clientList));
@@ -148,6 +155,26 @@ int getPosClientInClientList(ClientList* clientList, Window client){
     }
 }
 
+
+void raiseWindow(Window* window){
+    XRaiseWindow(display, *window);
+    XSelectInput(
+			display, *window, 
+			FocusChangeMask | KeyPressMask | ButtonPressMask | LeaveWindowMask | OwnerGrabButtonMask
+			);
+	XGrabButton(
+			display, 
+			AnyButton,
+			AnyModifier,
+			*window,
+			False,
+			OwnerGrabButtonMask | ButtonPressMask,
+			GrabModeSync,
+			GrabModeSync,
+			None,
+			None);
+}
+
 int OnWMDetected(Display* d, XErrorEvent* e){
     if (e->error_code == BadAccess){
         wm_detected_ = True;
@@ -155,13 +182,14 @@ int OnWMDetected(Display* d, XErrorEvent* e){
     return 0;
 }
 
+
 void Frame(Window w, Bool wasCreatedBeforeWM){ 
     const unsigned int BORDER_WIDTH = 3;
     const unsigned long BORDER_COLOR = 0x000000;
     const unsigned long BG_COLOR = 0x0000ff;
-    if (isClientIsInClientList(&clientList, w) == False){
+    /*if (isClientIsInClientList(&clientList, w) == False){
         return;
-    }
+    }*/
     XWindowAttributes x_window_attrs;
     XGetWindowAttributes(display, w, &x_window_attrs);
     if (wasCreatedBeforeWM) {
@@ -191,7 +219,7 @@ void Frame(Window w, Bool wasCreatedBeforeWM){
       frame,
       0, 0);
     XMapWindow(display, frame);
-    clientList.clients[getPosClientInClientList(&clientList, w)] = frame;
+    //clientList.clients[getPosClientInClientList(&clientList, w)] = frame;
     // Alt Left
     XGrabButton(
       display,
@@ -237,7 +265,7 @@ void Frame(Window w, Bool wasCreatedBeforeWM){
 }
 
 void unFrame(Window w){
-    Window frame = clientList.clients[getPosClientInClientList(&clientList, w)];
+    /*Window frame = clientList.clients[getPosClientInClientList(&clientList, w)];
     XUnmapWindow(display, frame);
     XReparentWindow(
       display,
@@ -246,14 +274,14 @@ void unFrame(Window w){
       0, 0);
     XRemoveFromSaveSet(display, w);
     XDestroyWindow(display, frame);
-    removeClientToList(&clientList, w);
+    removeClientToList(&clientList, w);*/
 }
 
 void input_grab(Window root) {
 }
 
 void onConfigureRequest(XConfigureRequestEvent* ev){
-    XWindowChanges changes;
+    /*XWindowChanges changes;
     changes.x = ev->x;
     changes.y = ev->y;
     changes.width = ev->width;
@@ -264,11 +292,14 @@ void onConfigureRequest(XConfigureRequestEvent* ev){
         const Window frame = clientList.clients[getPosClientInClientList(&clientList, ev->window)];
         XConfigureWindow(display, frame, ev->value_mask, &changes);
     }
-    XConfigureWindow(display, ev->window, ev->value_mask, &changes);
+    XConfigureWindow(display, ev->window, ev->value_mask, &changes);*/
 }
 
 void onButtonPress(XButtonEvent* ev){
-    Window frame = clientList.clients[getPosClientInClientList(&clientList, ev->window)];
+    if (ev->subwindow != None){
+        return;
+    }
+    /*Window frame = clientList.clients[getPosClientInClientList(&clientList, ev->window)];
     drag_start_pos_ = (pos_t){ev->x_root, ev->y_root};
     Window returned_root;
     int x, y;
@@ -283,7 +314,7 @@ void onButtonPress(XButtonEvent* ev){
       &depth);
     drag_start_frame_pos_ = (pos_t){x, y};
     drag_start_frame_size_ = (_size_t){height, width};
-    XRaiseWindow(display, frame);
+    XRaiseWindow(display, frame);*/
 }
 
 void onMapRequest(XMapRequestEvent* ev){
@@ -292,7 +323,7 @@ void onMapRequest(XMapRequestEvent* ev){
 }
 
 void onMotionNotify(XMotionEvent* ev){
-    Window frame = clientList.clients[getPosClientInClientList(&clientList, ev->window)];
+    /*Window frame = clientList.clients[getPosClientInClientList(&clientList, ev->window)];
     pos_t drag_pos = (pos_t){ev->x, ev->y};
     vector_t delta = (vector_t){drag_pos.x - drag_start_pos_.x, drag_pos.y - drag_start_pos_.y};
     if (ev->state && Button1Mask){
@@ -305,10 +336,13 @@ void onMotionNotify(XMotionEvent* ev){
         _size_t dest_frame_size = (_size_t){drag_start_frame_size_.width + size_delta.x, drag_start_frame_size_.height + size_delta.y};
         XResizeWindow(display, frame, dest_frame_size.width, dest_frame_size.height);
         XResizeWindow(display, ev->window, dest_frame_size.width, dest_frame_size.height);
-    }   
+    }*/   
 }
 
 void OnKeyPress(XKeyEvent* ev){
+    if (ev->state != Mod4Mask && ev->state != Mod1Mask){
+        return;
+    }
     if ((ev->state & Mod1Mask) && (ev->keycode == XKeysymToKeycode(display, XK_F4))){
         // Alt F4 Pressed
         Atom* supported_protocols;
@@ -327,7 +361,7 @@ void OnKeyPress(XKeyEvent* ev){
         }
     } else if ((ev->state & Mod1Mask) && (ev->keycode == XKeysymToKeycode(display, XK_Tab))){
         // Alt Tab Pressed
-        int i = getPosClientInClientList(&clientList, ev->window);
+        /*int i = getPosClientInClientList(&clientList, ev->window);
         if (i == sizeof(clientList.clients) / sizeof(clientList.clients[0]) - 1){
             return;
         }
@@ -336,7 +370,7 @@ void OnKeyPress(XKeyEvent* ev){
             i = 0;
         }
         XRaiseWindow(display, clientList.clients[i]);
-        XSetInputFocus(display, clientList.clients[i], RevertToPointerRoot, CurrentTime);
+        XSetInputFocus(display, clientList.clients[i], RevertToPointerRoot, CurrentTime);*/
     }
 }
 
@@ -353,7 +387,7 @@ void onButtonRelease(XButtonEvent* ev){}
 void OnKeyRelease(XKeyEvent* e){}
 
 void onUnmapNotify(XUnmapEvent* ev){
-    if (!isClientIsInClientList(&clientList, ev->window)){
+    /*if (!isClientIsInClientList(&clientList, ev->window)){
         // Ignoring UnmapNotify for non-client window
         return;
     }
@@ -361,8 +395,9 @@ void onUnmapNotify(XUnmapEvent* ev){
         // Ignoring UnmapNotify for reparented pre-existing window
         return;
     }
-    unFrame(ev->window);
+    unFrame(ev->window);*/
 }
+
 
 void start_window_manager(){
     XEvent e;
@@ -384,7 +419,13 @@ void start_window_manager(){
     XSetErrorHandler(xerror);
     int screen = DefaultScreen(display);
     root  = RootWindow(display, screen);
-    sw = XDisplayWidth(display, screen);
+    XGrabKey(display, XKeysymToKeycode(display, XStringToKeysym("F1")), Mod1Mask, root,
+            True, GrabModeAsync, GrabModeAsync);
+    XGrabButton(display, 1, Mod1Mask, root, True, ButtonPressMask, GrabModeAsync,
+            GrabModeAsync, None, None);
+    XGrabButton(display, 3, Mod1Mask, root, True, ButtonPressMask, GrabModeAsync,
+            GrabModeAsync, None, None);
+    /*sw = XDisplayWidth(display, screen);
     sh = XDisplayHeight(display, screen);
     wm_delete_window = XInternAtom(display, "WM_DELETE_WINDOW", False);
     wm_protocols = XInternAtom(display, "WM_PROTOCOLS", False);
@@ -401,12 +442,12 @@ void start_window_manager(){
       &returned_root,
       &returned_parent,
       &top_level_windows,
-      &num_top_level_windows);
-    for (unsigned int i = 0; i < num_top_level_windows; ++i) {
-    Frame(top_level_windows[i], True /* was_created_before_window_manager */);
-    }
-    XFree(top_level_windows);
-    XUngrabServer(display);
+      &num_top_level_windows);*/
+    //for (unsigned int i = 0; i < num_top_level_windows; ++i) {
+    //Frame(top_level_windows[i], True /* was_created_before_window_manager */);
+    //}
+    //XFree(top_level_windows);
+    //XUngrabServer(display);
     while (1 && !XNextEvent(display, &e)) {
         switch (e.type)
         {
@@ -439,6 +480,12 @@ void start_window_manager(){
             break;
         case KeyRelease:
             OnKeyRelease(&e.xkey);
+            break;
+        case KeyPress:
+            OnKeyPress(&e.xkey);
+            break;
+        case ButtonPress:
+            onButtonPress(&e.xbutton);
             break;
         default:
             printf("Event unknown\n");
@@ -473,7 +520,7 @@ int start_program(char* program_path) {
 
 
 int main() {
-    initClientList(&clientList, 1);
+    //initClientList(&clientList, 1);
 	logFile = fopen("log.txt", "w");
 	if(logFile == NULL) {
         printf("log file can't be opened\n");
