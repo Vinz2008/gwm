@@ -6,6 +6,7 @@
         "hash_map": "c",
         "bitset": "c",
         "string_view": "c",
-        "initializer_list": "c"
+        "initializer_list": "c",
+        "xlib.h": "c"
     }
 }

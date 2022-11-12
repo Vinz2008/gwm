@@ -1,12 +1,30 @@
 #include <X11/Xlib.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include "config.h"
 
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
 
 Display* display;
 Window root;
+int screen;
+static unsigned int win_focus;
+static unsigned int win_unfocus;
+
+unsigned long getcolor(const char* color) {
+    XColor c;
+    Colormap map = DefaultColormap(display,screen);
+
+    if(!XAllocNamedColor(display,map,color,&c,&c)){
+        printf("Error parsing color!");
+        exit(1);
+    }
+
+    return c.pixel;
+}
 
 void mapWindow(XEvent ev){
-    const unsigned int BORDER_WIDTH = 3;
+    /*const unsigned int BORDER_WIDTH = 3;
     //const unsigned long BORDER_COLOR = 0x000000;
     const unsigned long BORDER_COLOR = 0xff0000;
     const unsigned long BG_COLOR = 0x0000ff;
@@ -33,7 +51,10 @@ void mapWindow(XEvent ev){
       frame,
       0, 0);
     //XMapWindow(display, ev.xmaprequest.window);
-    XMapWindow(display, frame);
+    XMapWindow(display, frame);*/
+    XSetWindowBorderWidth(display, ev.xmaprequest.window,1);
+    XSetWindowBorder(display, ev.xmaprequest.window, win_focus);
+    XRaiseWindow(display, ev.xmaprequest.window);
     XMapWindow(display, ev.xmaprequest.window);
 }
 
@@ -43,7 +64,10 @@ int main(){
     XButtonEvent start;
     XEvent ev;
     if(!(display = XOpenDisplay(0x0))) return 1;
+    screen = DefaultScreen(display);
     root = DefaultRootWindow(display);
+    win_focus = getcolor(FOCUS);
+    win_unfocus = getcolor(UNFOCUS);
     XGrabKey(display, XKeysymToKeycode(display, XStringToKeysym("F1")), Mod1Mask, root, True, GrabModeAsync, GrabModeAsync);
     XGrabButton(display, 1, Mod1Mask, root, True, ButtonPressMask, GrabModeAsync, GrabModeAsync, None, None);
     XGrabButton(display, 3, Mod1Mask, root, True, ButtonPressMask, GrabModeAsync, GrabModeAsync, None, None);
