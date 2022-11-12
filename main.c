@@ -8,7 +8,7 @@ Window root;
 void mapWindow(XEvent ev){
     const unsigned int BORDER_WIDTH = 3;
     //const unsigned long BORDER_COLOR = 0x000000;
-    const unsigned long BORDER_COLOR = 0x0000ff;
+    const unsigned long BORDER_COLOR = 0xff0000;
     const unsigned long BG_COLOR = 0x0000ff;
     XWindowAttributes x_window_attrs;
     XGetWindowAttributes(display, ev.xmaprequest.window, &x_window_attrs);
@@ -23,8 +23,15 @@ void mapWindow(XEvent ev){
         BORDER_COLOR,
         BG_COLOR
     );
+    XAddToSaveSet(display, ev.xmaprequest.window); //Add client to save set, so that it will be restored and kept alive if we crash.
+    XReparentWindow(
+      display,
+      ev.xmaprequest.window,
+      frame,
+      0, 0);
     //XMapWindow(display, ev.xmaprequest.window);
     XMapWindow(display, frame);
+    XMapWindow(display, ev.xmaprequest.window);
 }
 
 
