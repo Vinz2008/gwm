@@ -2,9 +2,32 @@
 
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
 
+Display* display;
+Window root;
+
+void mapWindow(XEvent ev){
+    const unsigned int BORDER_WIDTH = 3;
+    const unsigned long BORDER_COLOR = 0x000000;
+    const unsigned long BG_COLOR = 0x0000ff;
+    XWindowAttributes x_window_attrs;
+    XGetWindowAttributes(display, ev.xmaprequest.window, &x_window_attrs);
+    const Window frame = XCreateSimpleWindow(
+        display,
+        root,
+        x_window_attrs.x,
+        x_window_attrs.y,
+        x_window_attrs.width,
+        x_window_attrs.height,
+        BORDER_WIDTH,
+        BORDER_COLOR,
+        BG_COLOR
+    );
+    //XMapWindow(display, ev.xmaprequest.window);
+    XMapWindow(display, frame);
+}
+
+
 int main(){
-    Display* display;
-    Window root;
     XWindowAttributes attr;
     XButtonEvent start;
     XEvent ev;
@@ -31,6 +54,9 @@ int main(){
                 attr.y + (start.button==1 ? ydiff : 0),
                 MAX(1, attr.width + (start.button==3 ? xdiff : 0)),
                 MAX(1, attr.height + (start.button==3 ? ydiff : 0)));
+        } else if (ev.type == MapRequest){
+            //Frame(ev.xmaprequest.window, False);
+            mapWindow(ev);
         } else if(ev.type == ButtonRelease){
             XUngrabPointer(display, CurrentTime);
         }
