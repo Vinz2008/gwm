@@ -13,16 +13,19 @@ void mapWindow(XEvent ev){
     XWindowAttributes x_window_attrs;
     XGetWindowAttributes(display, ev.xmaprequest.window, &x_window_attrs);
     const Window frame = XCreateSimpleWindow(
-        display,
-        root,
-        x_window_attrs.x,
-        x_window_attrs.y,
-        x_window_attrs.width,
-        x_window_attrs.height,
-        BORDER_WIDTH,
-        BORDER_COLOR,
-        BG_COLOR
-    );
+      display,
+      root,
+      x_window_attrs.x,
+      x_window_attrs.y,
+      x_window_attrs.width,
+      x_window_attrs.height,
+      BORDER_WIDTH,
+      BORDER_COLOR,
+      BG_COLOR);
+    XSelectInput(
+      display,
+      frame,
+      SubstructureRedirectMask | SubstructureNotifyMask);
     XAddToSaveSet(display, ev.xmaprequest.window); //Add client to save set, so that it will be restored and kept alive if we crash.
     XReparentWindow(
       display,
