@@ -12,6 +12,8 @@
         "initializer_list": "c",
         "xlib.h": "c",
         "xfuncproto.h": "c",
-        "xosdefs.h": "c"
+        "xosdefs.h": "c",
+        "list": "c",
+        "*.tcc": "c"
     }
 }

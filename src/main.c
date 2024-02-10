@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdbool.h>
+#include "window_list.h"
 #include "config.h"
 
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
@@ -9,6 +10,7 @@
 Display* display;
 Window root;
 int screen;
+struct window_list* w_list;
 static unsigned int win_focus;
 static unsigned int win_unfocus;
 
@@ -29,6 +31,9 @@ void Frame(Window w, bool was_created_before_window_manager){
     const unsigned int BORDER_WIDTH = 3;
     const unsigned long BORDER_COLOR = 0xff0000;
     const unsigned long BG_COLOR = 0x0000ff;
+    if (is_in_window_list(w_list, w)){
+        return;
+    }
     XWindowAttributes x_window_attrs;
     XGetWindowAttributes(display, w, &x_window_attrs);
     if (was_created_before_window_manager) {
@@ -57,65 +62,37 @@ void Frame(Window w, bool was_created_before_window_manager){
       frame,
       0, 0);
     XMapWindow(display, frame);
+    append_window_list(w_list, create_window(w, frame));
     fprintf(stderr, "framed window\n");
 }
 
+void UnFrame(Window w){
+    if (!is_in_window_list(w_list, w)){
+        return;
+    }
+
+    const Window frame = find_frame_window_list(w_list, w);
+    XUnmapWindow(display, frame);
+    XReparentWindow(display, w, root, 0, 0);
+    XRemoveFromSaveSet(display, w);
+    XDestroyWindow(display, frame);
+    remove_from_window_list(w_list, w);
+}
+
 void mapWindow(XEvent ev){
-    /*const unsigned int BORDER_WIDTH = 3;
-    //const unsigned long BORDER_COLOR = 0x000000;
-    const unsigned long BORDER_COLOR = 0xff0000;
-    const unsigned long BG_COLOR = 0x0000ff;
-    XWindowAttributes x_window_attrs;
-    XGetWindowAttributes(display, ev.xmaprequest.window, &x_window_attrs);
-    const Window frame = XCreateSimpleWindow(
-      display,
-      root,
-      x_window_attrs.x,
-      x_window_attrs.y,
-      x_window_attrs.width,
-      x_window_attrs.height,
-      BORDER_WIDTH,
-      BORDER_COLOR,
-      BG_COLOR);
-    XSelectInput(
-      display,
-      frame,
-      SubstructureRedirectMask | SubstructureNotifyMask);
-    XAddToSaveSet(display, ev.xmaprequest.window); //Add client to save set, so that it will be restored and kept alive if we crash.
-    XReparentWindow(
-      display,
-      ev.xmaprequest.window,
-      frame,
-      0, 0);
-    //XMapWindow(display, ev.xmaprequest.window);
-    XMapWindow(display, frame);
-    fprintf(stderr, "MAPPED WINDOW");
-    XSetWindowBorderWidth(display, ev.xmaprequest.window, 1);
-    XSetWindowBorder(display, ev.xmaprequest.window, win_focus);
-    XWindowAttributes attr;
-    Pixmap pixmap = XCreatePixmap(display, ev.xmaprequest.window, );
-    attr.border_pixmap = XCreatePixmap()
-    XChangeWindowAttributes(display, ev.xmaprequest.window, 0, );
-    XRaiseWindow(display, ev.xmaprequest.window);
-    XMapWindow(display, ev.xmaprequest.window);*/
     Frame(ev.xmaprequest.window, false);
     XMapWindow(display, ev.xmaprequest.window);
 }
 
+void onUnmapNotify(XEvent ev){
+    if (ev.xunmap.event == root){
+        return;
+    }
+    UnFrame(ev.xunmap.window);
+}
 
-int main(){
-    //XWindowAttributes attr;
-    //XButtonEvent start;
-    XEvent ev;
-    if(!(display = XOpenDisplay(0x0))) return 1;
-    screen = DefaultScreen(display);
-    root = DefaultRootWindow(display);
-    //win_focus = getcolor(FOCUS);
-    //win_unfocus = getcolor(UNFOCUS);
-    /*XGrabKey(display, XKeysymToKeycode(display, XStringToKeysym("F1")), Mod1Mask, root, True, GrabModeAsync, GrabModeAsync);
-    XGrabButton(display, 1, Mod1Mask, root, True, ButtonPressMask, GrabModeAsync, GrabModeAsync, None, None);
-    XGrabButton(display, 3, Mod1Mask, root, True, ButtonPressMask, GrabModeAsync, GrabModeAsync, None, None);*/
-    XSync(display, false);
+
+void frameAlreadyOpenedWindows(){
     XGrabServer(display);
     unsigned int num_top_level_windows;
     Window returned_root, returned_parent;
@@ -137,6 +114,23 @@ int main(){
     }
     XFree(top_level_windows);
     XUngrabServer(display);
+}
+
+int main(){
+    //XWindowAttributes attr;
+    //XButtonEvent start;
+    w_list = create_window_list();
+    XEvent ev;
+    if(!(display = XOpenDisplay(0x0))) return 1;
+    screen = DefaultScreen(display);
+    root = DefaultRootWindow(display);
+    //win_focus = getcolor(FOCUS);
+    //win_unfocus = getcolor(UNFOCUS);
+    /*XGrabKey(display, XKeysymToKeycode(display, XStringToKeysym("F1")), Mod1Mask, root, True, GrabModeAsync, GrabModeAsync);
+    XGrabButton(display, 1, Mod1Mask, root, True, ButtonPressMask, GrabModeAsync, GrabModeAsync, None, None);
+    XGrabButton(display, 3, Mod1Mask, root, True, ButtonPressMask, GrabModeAsync, GrabModeAsync, None, None);*/
+    XSync(display, false);
+    frameAlreadyOpenedWindows();
     for (;;){
         XNextEvent(display, &ev);
         if (ev.type == KeyPress && ev.xkey.subwindow != None){
@@ -158,7 +152,11 @@ int main(){
         } else if (ev.type == MapRequest){
             //Frame(ev.xmaprequest.window, False);
             mapWindow(ev);
-        } /*else if(ev.type == ButtonRelease){
+        } else if (ev.type == UnmapNotify){
+            onUnmapNotify(ev);
+        }
+        
+         /*else if(ev.type == ButtonRelease){
             XUngrabPointer(display, CurrentTime);
         }*/
     }
