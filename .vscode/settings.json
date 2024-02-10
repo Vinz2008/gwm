@@ -2,11 +2,16 @@
     "files.associations": {
         "io": "llvm",
         "std": "llvm",
+        "*.wasm": "wasm",
+        "*.toml": "toml",
+        "*.hpoint": "cpoint",
         "array": "c",
         "hash_map": "c",
         "bitset": "c",
         "string_view": "c",
         "initializer_list": "c",
-        "xlib.h": "c"
+        "xlib.h": "c",
+        "xfuncproto.h": "c",
+        "xosdefs.h": "c"
     }
 }
