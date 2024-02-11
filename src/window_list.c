@@ -27,6 +27,7 @@ void append_window_list(struct window_list* list, window_t window){
 bool is_in_window_list(struct window_list* list, Window window){
     for (int i = 0; i < list->used; i++){
         if (list->list[i].window == window){
+            printf("is in window\n");
             return true;
         }
     }
@@ -45,6 +46,12 @@ Window find_frame_window_list(struct window_list* list, Window window){
 
 void remove_from_window_list(struct window_list* list, Window window){
     int pos = -1;
+    printf("OLD LIST : ");
+    for (int i = 0; i < list->used; i++){
+        printf(" %ld ", list->list[i].window);   
+    }
+    printf("\n");
+    
     for (int i = 0; i < list->used; i++){
         if (list->list[i].window == window){
             pos = i;
@@ -61,6 +68,11 @@ void remove_from_window_list(struct window_list* list, Window window){
     memcpy(list->list, window_list_buf, sizeof(window_t)*pos);
     memcpy(list->list+pos+1, window_list_buf+pos+2, sizeof(window_t)*pos);
     list->used -= 1;
+    printf("NEW LIST : ");
+    for (int i = 0; i < list->used; i++){
+        printf(" %ld ", list->list[i].window);   
+    }
+    printf("\n");
 }
 
 
